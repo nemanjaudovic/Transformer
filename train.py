@@ -44,11 +44,7 @@ def get_all_sentences(
     Yields:
         str: Sentence from the dataset in the provided language.
     """
-    yes = True
     for item in dataset:
-        if yes:
-            print(item['riddle']['Riddle'] + ' ' + item['riddle']['Answer'] + ' ' + item['riddle']['Hint'])
-            yes = False
         yield item['riddle']['Riddle'] + ' ' + item['riddle']['Answer'] + ' ' + item['riddle']['Hint']
         
 
@@ -56,7 +52,7 @@ def get_or_build_tokenizer(
         config, 
         dataset: HFDataset, 
         force_rewrite: bool = False,
-        min_frequency: int = 2,
+        min_frequency: int = 1,
         vocab_size: int = 1000000
     ) -> Tokenizer:
     """ 
@@ -79,39 +75,42 @@ def get_or_build_tokenizer(
     tokenizer_path = Path(config['tokenizer_file'])
 
     # If such a path doesn't exist, or we force the rewrite, then build the tokenizer.
-    if not Path.exists(tokenizer_path) or force_rewrite:
+    # if not Path.exists(tokenizer_path) or force_rewrite:
+    #
+    #     # Initialize the tokenizer with the unknown token [UNK].
+    #     # This tokenizer will consider full words to be tokens.
+    #     tokenizer = Tokenizer(WordLevel(unk_token = '[UNK]'))
+    #     tokenizer.pre_tokenizer = CharDelimiterSplit(' ')
+    #
+    #     # Build a trainer with the specified special tokens, and parameters for minimum frequency and vocabulary size.
+    #     trainer = WordLevelTrainer(
+    #         special_tokens = ["[UNK]", "[PAD]", "[SOS]", "[EOS]"],
+    #         min_frequency = min_frequency,
+    #         vocab_size = vocab_size
+    #         )
+    #
+    #     # Train the tokenizer on the dataset in the given language.
+    #     tokenizer.train_from_iterator(get_all_sentences(dataset), trainer = trainer)
+    #
+    #     # Save the tokenizer to file.
+    #     tokenizer.save(str(tokenizer_path))
+    #
+    # # Get the tokenizer from file.
+    # else:
+    #     tokenizer = Tokenizer.from_file(str(tokenizer_path))
 
-        # Initialize the tokenizer with the unknown token [UNK].
-        # This tokenizer will consider full words to be tokens.
-        tokenizer = Tokenizer(WordLevel(unk_token = '[UNK]'))
-        tokenizer.pre_tokenizer = CharDelimiterSplit(' ')
-
-        # Build a trainer with the specified special tokens, and parameters for minimum frequency and vocabulary size.
-        trainer = WordLevelTrainer(
-            special_tokens = ["[UNK]", "[PAD]", "[SOS]", "[EOS]"], 
-            min_frequency = min_frequency, 
-            vocab_size = vocab_size
-            )
-        
-        # Train the tokenizer on the dataset in the given language.
-        tokenizer.train_from_iterator(get_all_sentences(dataset), trainer = trainer)
-
-        # Save the tokenizer to file.
-        tokenizer.save(str(tokenizer_path))
-
-    # Get the tokenizer from file.
-    else: 
-        tokenizer = Tokenizer.from_file(str(tokenizer_path))
+    tokenizer = Tokenizer.from_pretrained('t5-small')
+    tokenizer.save(str(tokenizer_path))
 
     # Return the tokenizer and print the number of tokens in it.
-    print(f"Number of tokens for trained tokenizer is {tokenizer.get_vocab_size()}.")
+    print(f"Number of tokens for trained tokenizer is {tokenizer.get_vocab_size}.")
     return tokenizer
 
 
 def get_dataset(config):
     """
     Initializes the training and validation datasets.
-    Initializes the tokenizers in each language.
+    Initializes the tokenizers.
 
     Args:
         config: A config file.

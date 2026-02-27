@@ -18,9 +18,9 @@ def get_config():
             seed: (int | None): seed of the model
     """
     return {
-        "batch_size": 64,
+        "batch_size": 256,
         "num_epochs": 100,
-        "learning_rate": 3 * 10**-4,
+        "learning_rate": 1 * 10**-4,
         "context_size": 64,
         "model_dimension": 128,
         "model_folder": "weights",

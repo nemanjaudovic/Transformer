@@ -77,9 +77,9 @@ def run_validation(
         device: str,
         writer: SummaryWriter,
         global_step: int,
-        number_examples: int = 2
+        number_examples: int = 5
     ) -> None:
-    validation_dataset.dataset.change_P(1)
+    validation_dataset.dataset.change_P(0)
     model.eval()
 
     count = 0
@@ -175,30 +175,30 @@ def run_validation(
         writer.flush()
 
 
-# def _prepare_model(config):
-#     source_language = config['source_language']
-#     target_language = config['target_language']
-#
-#     tokenizer = Tokenizer.from_file(str(config['tokenizer_file'].format(source_language)))
-#
-#     max_length = config['context_size']
-#
-#     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-#
-#     model = get_model(config, tokenizer.get_vocab_size()).to(device)
-#     model_filename = get_latest_weights(config)
-#     state = torch.load(model_filename)
-#     model.load_state_dict(state['model_state_dict'])
-#
-#     pad_token = torch.tensor([tokenizer.token_to_id('[PAD]')], dtype=torch.int64).to(device)
-#
-#     return {
-#         'model': model,
-#         'tokenizer': tokenizer,
-#         'max_length': max_length,
-#         'device': device,
-#         'pad_token': pad_token
-#     }
+def _prepare_model(config):
+    source_language = config['source_language']
+    target_language = config['target_language']
+
+    tokenizer = Tokenizer.from_file(str(config['tokenizer_file'].format(source_language)))
+
+    max_length = config['context_size']
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    model = get_model(config, tokenizer.get_vocab_size()).to(device)
+    model_filename = get_latest_weights(config)
+    state = torch.load(model_filename)
+    model.load_state_dict(state['model_state_dict'])
+
+    pad_token = torch.tensor([tokenizer.token_to_id('[PAD]')], dtype=torch.int64).to(device)
+
+    return {
+        'model': model,
+        'tokenizer': tokenizer,
+        'max_length': max_length,
+        'device': device,
+        'pad_token': pad_token
+    }
 
 
 def _translate_sentence(

@@ -18,8 +18,8 @@ def get_config():
             seed: (int | None): seed of the model
     """
     return {
-        "batch_size": 32,
-        "num_epochs": 200,
+        "batch_size": 64,
+        "num_epochs": 150,
         "learning_rate": 2 * 10**-4,
         "context_size": 128,
         "model_dimension": 128,

@@ -281,6 +281,7 @@ def train_model(config):
     run_full_validation(model, training_dataloader, tokenizer, config['context_size'], device, None,
                         0, loss_function, 1.0)
     print('-' * 80)
+    writer.close()
 
 
 

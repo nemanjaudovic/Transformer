@@ -208,7 +208,7 @@ def train_model(config):
         print("No model to preload, starting from the beginning.")
 
     # Define the loss function.
-    loss_function = nn.CrossEntropyLoss(ignore_index = tokenizer.token_to_id('[PAD]'), label_smoothing = 0.1).to(device)
+    loss_function = nn.CrossEntropyLoss(ignore_index = tokenizer.token_to_id('<pad>'), label_smoothing = 0.1).to(device)
 
     # Run the epochs.
     P_schedule = np.linspace(0,1, config['num_epochs'])

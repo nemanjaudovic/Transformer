@@ -30,8 +30,8 @@ def _greedy_decode(
         max_length: int,
         device: str
     ) -> torch.Tensor:
-    sos_index = tokenizer.token_to_id('[SOS]')
-    eos_index = tokenizer.token_to_id('[EOS]')
+    sos_index = tokenizer.token_to_id('<pad>')
+    eos_index = tokenizer.token_to_id('</s>')
 
     encoder_output = model.encode(encoder_input, source_mask)
 
@@ -105,7 +105,7 @@ def run_validation(
 
             assert encoder_input.size(0) == 1, "Batch size must be 1 for validation"
 
-            sos_index = tokenizer.token_to_id('[SOS]')
+            sos_index = tokenizer.token_to_id('<pad>')
 
             target_ids = tokenizer.encode(batch['target_text'][0]).ids
 

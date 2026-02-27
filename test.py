@@ -9,6 +9,7 @@ import torchmetrics
 import tabulate
 from tqdm import tqdm
 import torch.nn as nn
+import evaluate
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -63,16 +64,18 @@ def compute_token_f1(pred_ids: list, target_ids: list) -> float:
 
 
 def run_full_validation(
-        model,  # Type: Transformer
-        validation_dataset,  # Type: DataLoader
-        tokenizer,  # Type: Tokenizer
+        model,
+        validation_dataset,
+        tokenizer,
         max_length: int,
         device: str,
-        writer,  # Type: SummaryWriter
+        writer,
         global_step: int,
-        loss_fn: nn.Module  # Pass your CrossEntropyLoss here!
+        loss_fn: nn.Module
 ) -> None:
-    # Put dataset in validation mode (disables things like dropout in custom datasets)
+    # 1. Initialize Hugging Face Metric (Load it once outside the loop)
+    meteor = evaluate.load("meteor")
+
     if hasattr(validation_dataset.dataset, 'change_P'):
         validation_dataset.dataset.change_P(0)
 
@@ -84,34 +87,32 @@ def run_full_validation(
     expected_texts = []
     predicted_texts = []
 
-    # Initialize METEOR metric
-    meteor_metric = torchmetrics.text.METEORScore().to(device)
-
     with torch.no_grad():
         for batch in tqdm(validation_dataset, desc="Validating"):
-            # Teacher Forcing for validation loss
+            # --- PART 1: Validation Loss (Teacher Forcing) ---
             encoder_input = batch['encoder_input'].to(device)
             encoder_mask = batch['encoder_mask'].to(device)
             decoder_input = batch['decoder_input'].to(device)
             decoder_mask = batch['decoder_mask'].to(device)
             label = batch['label'].to(device)
 
-            # Forward pass just like in training
             encoder_output = model.encode(encoder_input, encoder_mask)
             decoder_output = model.decode(encoder_output, encoder_mask, decoder_input, decoder_mask)
             proj_output = model.project(decoder_output)
 
+            # Reshape for loss: (Batch * Seq_Len, Vocab_Size) vs (Batch * Seq_Len)
             loss = loss_fn(proj_output.view(-1, tokenizer.get_vocab_size()), label.view(-1))
             total_val_loss += loss.item()
 
-            # Greedy generation for f1 and meteor
+            # --- PART 2: Metrics (Greedy Generation) ---
             model_out = _greedy_decode(model, encoder_input, encoder_mask, tokenizer, max_length, device)
 
             # Get integer lists for F1 calculation
             pred_ids = model_out.detach().cpu().numpy().tolist()
+            # Note: Ensure your tokenizer is the HuggingFace one (or compatible)
             target_ids = tokenizer.encode(batch['target_text'][0]).ids
 
-            # Calculate Token F1 for this specific sample
+            # Calculate Token F1 (Custom function)
             f1 = compute_token_f1(pred_ids, target_ids)
             all_f1_scores.append(f1)
 
@@ -122,7 +123,7 @@ def run_full_validation(
             expected_texts.append(target_text)
             predicted_texts.append(model_out_text)
 
-    # --- PART 3: Aggregate and Write to TensorBoard ---
+    # --- PART 3: Aggregate and Write ---
 
     # Average Loss
     avg_val_loss = total_val_loss / len(validation_dataset)
@@ -130,10 +131,12 @@ def run_full_validation(
     # Average F1
     avg_f1 = sum(all_f1_scores) / len(all_f1_scores)
 
-    # Overall METEOR
-    meteor_score = meteor_metric(predicted_texts, expected_texts).item()
+    # Calculate METEOR using Hugging Face Evaluate
+    # It returns a dictionary: {'meteor': 0.1234}
+    meteor_result = meteor.compute(predictions=predicted_texts, references=expected_texts)
+    meteor_score = meteor_result['meteor']
 
-    # Print to console so you can see it immediately
+    # Print to console
     print("-" * 80)
     print(f"Validation Step: {global_step}")
     print(f"Average Loss:  {avg_val_loss:.4f}")

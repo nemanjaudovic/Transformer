@@ -10,23 +10,6 @@ from typing import Any, Dict
 import random
 
 
-# class RiddleDataset(TorchDataset):
-#     def __init__(self, path: str, tokenizer: Tokenizer, context_size: int):
-#         self.dataset_file = pd.read_csv(path)
-#         self.tokenizer = tokenizer
-#         self.sos_token = torch.tensor([tokenizer.token_to_id('[SOS]')], dtype=torch.int64)
-#
-#         self.eos_token = torch.tensor([tokenizer.token_to_id('[EOS]')], dtype=torch.int64)
-#
-#         self.pad_token = torch.tensor([tokenizer.token_to_id('[PAD]')], dtype=torch.int64)
-#
-#
-#     def __getitem__(self, idx):
-#         pass
-#
-#     def __len__(self):
-#         pass
-
 class BilingualDataset(TorchDataset):
     """
     Wrapper class of Torch Dataset.
@@ -71,13 +54,13 @@ class BilingualDataset(TorchDataset):
         # Initializing the start of sentence, end of sentence and padding tokens.
         
         # Start of sentence token signifies the beginning of a sentence.
-        self.sos_token = torch.tensor([tokenizer.token_to_id('[SOS]')], dtype = torch.int64)
+        self.sos_token = torch.tensor([tokenizer.token_to_id('<pad>')], dtype = torch.int64)
         
         # End of sentence token signifies the end of a sentence.
-        self.eos_token = torch.tensor([tokenizer.token_to_id('[EOS]')], dtype = torch.int64)
+        self.eos_token = torch.tensor([tokenizer.token_to_id('</s>')], dtype = torch.int64)
 
         # Padding token signifies the placeholder token for sentences shorter than context size, which fills the empty spaces.
-        self.pad_token = torch.tensor([tokenizer.token_to_id('[PAD]')], dtype = torch.int64)
+        self.pad_token = torch.tensor([tokenizer.token_to_id('<pad>')], dtype = torch.int64)
 
 
     def change_P(self, new_P):

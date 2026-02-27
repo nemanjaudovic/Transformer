@@ -155,7 +155,7 @@ def get_dataset(config):
 
     # Define the DataLoader objects for training and validation datasets.
     training_dataloader = DataLoader(training_dataset, batch_size = config['batch_size'], shuffle = True)
-    validation_dataloader = DataLoader(validation_dataset, batch_size = config['batch_size'], shuffle = True)
+    validation_dataloader = DataLoader(validation_dataset, batch_size = 1, shuffle = True)
     test_dataloader = DataLoader(test_dataset, batch_size = 1, shuffle = True)
 
     return training_dataloader, validation_dataloader, test_dataloader, tokenizer
@@ -256,7 +256,7 @@ def train_model(config):
         #run_validation_visualization(model, validation_dataloader, source_tokenizer, target_tokenizer, config['context_size'], device, lambda msg: batch_iterator.write(msg), writer, global_step, number_examples = 1)
         # run_validation_teacher_forcing(model, validation_dataloader, loss_function, target_tokenizer, device)
         #run_validation(model, test_dataloader, tokenizer, 100, device, writer, len(training_dataloader)*epoch)
-        run_full_validation(model, validation_dataloader, tokenizer, config['context_size'], device, writer, epoch*config['batch_size'], loss_function)
+        run_full_validation(model, validation_dataloader, tokenizer, config['context_size'], device, writer, epoch*config['batch_size'], loss_function, 0.0)
 
         # Save weights at certain 'milestone' epochs.
         model_filename = get_weights_file_path(config, f'{epoch:02d}')
@@ -271,6 +271,18 @@ def train_model(config):
     # Run the validation at the end of training.
     #run_validation_visualization(model, validation_dataloader, source_tokenizer, target_tokenizer, config['context_size'], device, lambda msg: batch_iterator.write(msg), writer, global_step, number_examples = 50)
     #run_test(test_dataloader)
+
+    print('-'*80)
+    print("Final model test without hints")
+    run_full_validation(model, training_dataloader, tokenizer, config['context_size'], device, None,
+                        0, loss_function, 0.0)
+    print('-' * 80)
+    print("Final model test with hints")
+    run_full_validation(model, training_dataloader, tokenizer, config['context_size'], device, None,
+                        0, loss_function, 1.0)
+    print('-' * 80)
+
+
 
 def dataset_test(config):
     training_dataloader, validation_dataloader, test_dataloader, tokenizer = get_dataset(config)

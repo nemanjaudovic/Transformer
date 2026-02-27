@@ -71,13 +71,14 @@ def run_full_validation(
         device: str,
         writer,
         global_step: int,
-        loss_fn: nn.Module
+        loss_fn: nn.Module,
+        P: float
 ) -> None:
     # 1. Initialize Hugging Face Metric (Load it once outside the loop)
     meteor = evaluate.load("meteor")
 
     if hasattr(validation_dataset.dataset, 'change_P'):
-        validation_dataset.dataset.change_P(0)
+        validation_dataset.dataset.change_P(P)
 
     model.eval()
 
@@ -147,7 +148,9 @@ def run_full_validation(
     # Write metrics to TensorBoard
     if writer:
         writer.add_scalar('Validation/Loss', avg_val_loss, global_step)
+        writer.flush()
         writer.add_scalar('Validation/Token_F1', avg_f1, global_step)
+        writer.flush()
         writer.add_scalar('Validation/METEOR', meteor_score, global_step)
         writer.flush()
 

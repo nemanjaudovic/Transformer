@@ -8,7 +8,7 @@ import numpy as np
 from dataset import BilingualDataset, load_data
 from model import get_model
 from config import get_weights_file_path, get_latest_weights, get_config
-from test import run_validation, run_validation_teacher_forcing, run_validation_visualization, run_test, answer
+from test import run_validation, run_validation_teacher_forcing, run_validation_visualization, run_test, answer, run_full_validation
 
 # HuggingFace stuff
 from tokenizers import Tokenizer
@@ -255,7 +255,8 @@ def train_model(config):
         # Run the validation at the end of every epoch.
         #run_validation_visualization(model, validation_dataloader, source_tokenizer, target_tokenizer, config['context_size'], device, lambda msg: batch_iterator.write(msg), writer, global_step, number_examples = 1)
         # run_validation_teacher_forcing(model, validation_dataloader, loss_function, target_tokenizer, device)
-        run_validation(model, test_dataloader, tokenizer, 100, device, writer, len(training_dataloader)*epoch)
+        #run_validation(model, test_dataloader, tokenizer, 100, device, writer, len(training_dataloader)*epoch)
+        run_full_validation(model, validation_dataloader, tokenizer, config['context_size'], device, writer, epoch*config['batch_size'], loss_function)
 
         # Save weights at certain 'milestone' epochs.
         model_filename = get_weights_file_path(config, f'{epoch:02d}')

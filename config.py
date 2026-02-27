@@ -18,10 +18,10 @@ def get_config():
             seed: (int | None): seed of the model
     """
     return {
-        "batch_size": 128,
+        "batch_size": 32,
         "num_epochs": 200,
         "learning_rate": 2 * 10**-4,
-        "context_size": 64,
+        "context_size": 128,
         "model_dimension": 128,
         "model_folder": "weights",
         "model_basename": "riddle_llm",

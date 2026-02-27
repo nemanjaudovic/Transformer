@@ -7,8 +7,146 @@ import os
 from torch.utils.data import DataLoader
 import torchmetrics
 import tabulate
+from tqdm import tqdm
+import torch.nn as nn
 
 from torch.utils.tensorboard import SummaryWriter
+
+
+def compute_f1_score(predicted_text: str, target_text: str) -> float:
+    """
+    Calculates token-level F1 score (Precision vs Recall of words).
+    Standard metric for SQuAD and QA tasks.
+    """
+    pred_tokens = predicted_text.lower().split()
+    target_tokens = target_text.lower().split()
+
+    if len(pred_tokens) == 0 or len(target_tokens) == 0:
+        return int(pred_tokens == target_tokens)
+
+    common_tokens = set(pred_tokens) & set(target_tokens)
+
+    # If no common tokens, F1 is 0
+    if len(common_tokens) == 0:
+        return 0.0
+
+    prec = len(common_tokens) / len(pred_tokens)
+    rec = len(common_tokens) / len(target_tokens)
+
+    return 2 * (prec * rec) / (prec + rec)
+
+
+def compute_token_f1(pred_ids: list, target_ids: list) -> float:
+    """
+    Calculates F1 score based on the overlap of Token IDs.
+    """
+    pred_set = set(pred_ids)
+    target_set = set(target_ids)
+
+    # If both are empty, it's a perfect match
+    if len(pred_set) == 0 and len(target_set) == 0:
+        return 1.0
+    # If one is empty but the other isn't, it's a total failure
+    elif len(pred_set) == 0 or len(target_set) == 0:
+        return 0.0
+
+    common_tokens = pred_set.intersection(target_set)
+
+    if len(common_tokens) == 0:
+        return 0.0
+
+    precision = len(common_tokens) / len(pred_set)
+    recall = len(common_tokens) / len(target_set)
+
+    f1 = 2 * (precision * recall) / (precision + recall)
+    return f1
+
+
+def run_full_validation(
+        model,  # Type: Transformer
+        validation_dataset,  # Type: DataLoader
+        tokenizer,  # Type: Tokenizer
+        max_length: int,
+        device: str,
+        writer,  # Type: SummaryWriter
+        global_step: int,
+        loss_fn: nn.Module  # Pass your CrossEntropyLoss here!
+) -> None:
+    # Put dataset in validation mode (disables things like dropout in custom datasets)
+    if hasattr(validation_dataset.dataset, 'change_P'):
+        validation_dataset.dataset.change_P(0)
+
+    model.eval()
+
+    total_val_loss = 0.0
+    all_f1_scores = []
+
+    expected_texts = []
+    predicted_texts = []
+
+    # Initialize METEOR metric
+    meteor_metric = torchmetrics.text.METEORScore().to(device)
+
+    with torch.no_grad():
+        for batch in tqdm(validation_dataset, desc="Validating"):
+            # Teacher Forcing for validation loss
+            encoder_input = batch['encoder_input'].to(device)
+            encoder_mask = batch['encoder_mask'].to(device)
+            decoder_input = batch['decoder_input'].to(device)
+            decoder_mask = batch['decoder_mask'].to(device)
+            label = batch['label'].to(device)
+
+            # Forward pass just like in training
+            encoder_output = model.encode(encoder_input, encoder_mask)
+            decoder_output = model.decode(encoder_output, encoder_mask, decoder_input, decoder_mask)
+            proj_output = model.project(decoder_output)
+
+            loss = loss_fn(proj_output.view(-1, tokenizer.get_vocab_size()), label.view(-1))
+            total_val_loss += loss.item()
+
+            # Greedy generation for f1 and meteor
+            model_out = _greedy_decode(model, encoder_input, encoder_mask, tokenizer, max_length, device)
+
+            # Get integer lists for F1 calculation
+            pred_ids = model_out.detach().cpu().numpy().tolist()
+            target_ids = tokenizer.encode(batch['target_text'][0]).ids
+
+            # Calculate Token F1 for this specific sample
+            f1 = compute_token_f1(pred_ids, target_ids)
+            all_f1_scores.append(f1)
+
+            # Decode to strings for METEOR calculation
+            target_text = batch['target_text'][0]
+            model_out_text = tokenizer.decode(pred_ids)
+
+            expected_texts.append(target_text)
+            predicted_texts.append(model_out_text)
+
+    # --- PART 3: Aggregate and Write to TensorBoard ---
+
+    # Average Loss
+    avg_val_loss = total_val_loss / len(validation_dataset)
+
+    # Average F1
+    avg_f1 = sum(all_f1_scores) / len(all_f1_scores)
+
+    # Overall METEOR
+    meteor_score = meteor_metric(predicted_texts, expected_texts).item()
+
+    # Print to console so you can see it immediately
+    print("-" * 80)
+    print(f"Validation Step: {global_step}")
+    print(f"Average Loss:  {avg_val_loss:.4f}")
+    print(f"Token F1:      {avg_f1:.4f}")
+    print(f"METEOR Score:  {meteor_score:.4f}")
+    print("-" * 80)
+
+    # Write metrics to TensorBoard
+    if writer:
+        writer.add_scalar('Validation/Loss', avg_val_loss, global_step)
+        writer.add_scalar('Validation/Token_F1', avg_f1, global_step)
+        writer.add_scalar('Validation/METEOR', meteor_score, global_step)
+        writer.flush()
 
 def run_validation_teacher_forcing():
     pass
@@ -140,7 +278,6 @@ def run_validation(
             #print(tabulate(table, headers = 'keys', showindex = True, tablefmt = 'grid'))
 
             model_out = _greedy_decode(model, encoder_input, encoder_mask, tokenizer, max_length, device)
-            print(model_out)
 
             target_text = batch['target_text'][0]
 

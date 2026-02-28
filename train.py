@@ -16,6 +16,7 @@ from tokenizers.models import WordLevel
 from tokenizers.trainers import WordLevelTrainer
 from tokenizers.pre_tokenizers import Whitespace, CharDelimiterSplit, Punctuation
 from datasets import Dataset as HFDataset
+from transformers import get_cosine_schedule_with_warmup
 
 # Metrics stuff
 import warnings
@@ -73,31 +74,6 @@ def get_or_build_tokenizer(
     """
     # Get the path from config.
     tokenizer_path = Path(config['tokenizer_file'])
-
-    # If such a path doesn't exist, or we force the rewrite, then build the tokenizer.
-    # if not Path.exists(tokenizer_path) or force_rewrite:
-    #
-    #     # Initialize the tokenizer with the unknown token [UNK].
-    #     # This tokenizer will consider full words to be tokens.
-    #     tokenizer = Tokenizer(WordLevel(unk_token = '[UNK]'))
-    #     tokenizer.pre_tokenizer = CharDelimiterSplit(' ')
-    #
-    #     # Build a trainer with the specified special tokens, and parameters for minimum frequency and vocabulary size.
-    #     trainer = WordLevelTrainer(
-    #         special_tokens = ["[UNK]", "[PAD]", "[SOS]", "[EOS]"],
-    #         min_frequency = min_frequency,
-    #         vocab_size = vocab_size
-    #         )
-    #
-    #     # Train the tokenizer on the dataset in the given language.
-    #     tokenizer.train_from_iterator(get_all_sentences(dataset), trainer = trainer)
-    #
-    #     # Save the tokenizer to file.
-    #     tokenizer.save(str(tokenizer_path))
-    #
-    # # Get the tokenizer from file.
-    # else:
-    #     tokenizer = Tokenizer.from_file(str(tokenizer_path))
 
     tokenizer = Tokenizer.from_pretrained('t5-small')
     tokenizer.save(str(tokenizer_path))
@@ -192,6 +168,9 @@ def train_model(config):
     # Adjusts the learning rate as the model trains.
     optimizer = torch.optim.Adam(model.parameters(), lr = config['learning_rate'], eps = 1e-9)
 
+    total_steps = config['num_epochs'] * len(training_dataloader)
+    scheduler = get_cosine_schedule_with_warmup(optimizer, num_warmup_steps=0.05*total_steps, num_training_steps=total_steps)
+
     # Load a pretrained model if defined and if it exists.
     initial_epoch = 0
     global_step = 0
@@ -248,6 +227,7 @@ def train_model(config):
 
             # Adjust the learning rate.
             optimizer.step()
+            scheduler.step()
             optimizer.zero_grad()
 
             # Adjust the global step.

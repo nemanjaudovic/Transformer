@@ -22,7 +22,7 @@ def get_config():
         "num_epochs": 100,
         "learning_rate": 2 * 10**-4,
         "context_size": 128,
-        "model_dimension": 64,
+        "model_dimension": 256,
         "model_folder": "weights",
         "model_basename": "riddle_llm",
         "preload": None,

@@ -20,7 +20,7 @@ def get_config():
     return {
         "batch_size": 64,
         "num_epochs": 120,
-        "learning_rate": 3 * 10**-4,
+        "learning_rate": 2 * 10**-4,
         "context_size": 128,
         "model_dimension": 128,
         "model_folder": "weights",
@@ -28,7 +28,8 @@ def get_config():
         "preload": None,
         "tokenizer_file": "tokenizer.json",
         "experiment_name": "runs/riddle_llm",
-        "seed": 561
+        "seed": 561,
+        "model_path": ""
     }
 
 def get_weights_file_path(

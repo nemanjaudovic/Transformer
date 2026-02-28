@@ -74,7 +74,6 @@ def run_full_validation(
         loss_fn: nn.Module,
         P: float
 ) -> None:
-    # 1. Initialize Hugging Face Metric (Load it once outside the loop)
     meteor = evaluate.load("meteor")
 
     if hasattr(validation_dataset.dataset, 'change_P'):
@@ -90,41 +89,35 @@ def run_full_validation(
 
     with torch.no_grad():
         for batch in tqdm(validation_dataset, desc="Validating"):
-            # --- PART 1: Validation Loss (Teacher Forcing) ---
             encoder_input = batch['encoder_input'].to(device)
             encoder_mask = batch['encoder_mask'].to(device)
             decoder_input = batch['decoder_input'].to(device)
             decoder_mask = batch['decoder_mask'].to(device)
             label = batch['label'].to(device)
 
+            # Validate loss using teacher forcing --- like during training
             encoder_output = model.encode(encoder_input, encoder_mask)
             decoder_output = model.decode(encoder_output, encoder_mask, decoder_input, decoder_mask)
             proj_output = model.project(decoder_output)
 
-            # Reshape for loss: (Batch * Seq_Len, Vocab_Size) vs (Batch * Seq_Len)
             loss = loss_fn(proj_output.view(-1, tokenizer.get_vocab_size()), label.view(-1))
             total_val_loss += loss.item()
 
-            # --- PART 2: Metrics (Greedy Generation) ---
+            # Validate f1 and METEOR on token predictions decoding one token at a time --- real usage scenario
             model_out = _greedy_decode(model, encoder_input, encoder_mask, tokenizer, max_length, device)
 
-            # Get integer lists for F1 calculation
             pred_ids = model_out.detach().cpu().numpy().tolist()
-            # Note: Ensure your tokenizer is the HuggingFace one (or compatible)
             target_ids = tokenizer.encode(batch['target_text'][0]).ids
 
-            # Calculate Token F1 (Custom function)
             f1 = compute_token_f1(pred_ids, target_ids)
             all_f1_scores.append(f1)
 
-            # Decode to strings for METEOR calculation
             target_text = batch['target_text'][0]
             model_out_text = tokenizer.decode(pred_ids)
 
             expected_texts.append(target_text)
             predicted_texts.append(model_out_text)
 
-    # --- PART 3: Aggregate and Write ---
 
     # Average Loss
     avg_val_loss = total_val_loss / len(validation_dataset)
@@ -132,12 +125,9 @@ def run_full_validation(
     # Average F1
     avg_f1 = sum(all_f1_scores) / len(all_f1_scores)
 
-    # Calculate METEOR using Hugging Face Evaluate
-    # It returns a dictionary: {'meteor': 0.1234}
     meteor_result = meteor.compute(predictions=predicted_texts, references=expected_texts)
     meteor_score = meteor_result['meteor']
 
-    # Print to console
     print("-" * 80)
     print(f"Validation Step: {global_step}")
     print(f"Average Loss:  {avg_val_loss:.4f}")
@@ -145,7 +135,6 @@ def run_full_validation(
     print(f"METEOR Score:  {meteor_score:.4f}")
     print("-" * 80)
 
-    # Write metrics to TensorBoard
     if writer:
         writer.add_scalar('Validation/Loss', avg_val_loss, global_step)
         writer.flush()
@@ -211,6 +200,105 @@ def _greedy_decode_next_token(
     decoder_input = torch.cat([decoder_input, torch.empty(1, 1).type_as(decoder_input).fill_(next_token.item()).to(device)], dim = 1)
 
     return decoder_input, next_token
+
+
+def predict_sequence(
+        model,
+        tokenizer,
+        source_text: str,
+        device: str,
+        max_length: int = 100
+):
+    """
+    Predicts the translation/answer for a single source string using the trained model.
+    Matches the logic of run_full_validation but for a single raw string.
+    """
+    model.eval()
+
+    with torch.no_grad():
+        sos_id = tokenizer.token_to_id('<pad>')
+        eos_id = tokenizer.token_to_id('</s>')
+        pad_id = tokenizer.token_to_id('<pad>')
+
+        input_ids = tokenizer.encode(source_text).ids
+        input_ids = [sos_id] + input_ids + [eos_id]
+
+        encoder_input = torch.tensor(input_ids).unsqueeze(0).to(device)
+
+        encoder_mask = (encoder_input != pad_id).unsqueeze(0).unsqueeze(0).int().to(device)
+
+        model_out = _greedy_decode(
+            model,
+            encoder_input,
+            encoder_mask,
+            tokenizer,
+            max_length,
+            device
+        )
+
+
+        pred_ids = model_out.detach().cpu().numpy().tolist()
+
+        predicted_text = tokenizer.decode(pred_ids, skip_special_tokens=True)
+
+        return predicted_text, pred_ids
+
+
+def collect_all_predictions(
+        model,
+        dataloader,
+        tokenizer,
+        device: str,
+        max_length: int = 100
+):
+    """
+    Iterates through the entire dataset, runs inference, and stores
+    Question (Source), True Answer (Target), and Predicted Answer.
+    """
+    model.eval()
+
+    results = []
+    count = 0
+
+    with torch.no_grad():
+        for batch in tqdm(dataloader, desc="Generating Predictions"):
+
+            # 1. Prepare Inputs
+            encoder_input = batch['encoder_input'].to(device)
+            encoder_mask = batch['encoder_mask'].to(device)
+
+            # 2. Run Inference (Greedy Decode)
+            # This returns the tensor of token IDs
+            model_out = _greedy_decode(
+                model,
+                encoder_input,
+                encoder_mask,
+                tokenizer,
+                max_length,
+                device
+            )
+
+            pred_ids = model_out.detach().cpu().numpy()
+            predicted_text = tokenizer.decode(pred_ids, skip_special_tokens=True)
+
+            true_answer = batch['target_text'][0]
+
+            question = batch['source_text'][0]
+
+            # 6. Store
+            results.append({
+                "Question": question,
+                "True Answer": true_answer,
+                "Predicted": predicted_text
+            })
+
+            count += 1
+
+    print("-" * 60)
+    print(f"Total input pairs processed: {count}")
+    print("-" * 60)
+
+    return results
 
 
 def run_validation(

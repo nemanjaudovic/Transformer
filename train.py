@@ -9,6 +9,7 @@ from dataset import BilingualDataset, load_data
 from model import get_model
 from config import get_weights_file_path, get_latest_weights, get_config
 from test import run_validation, run_validation_teacher_forcing, run_validation_visualization, run_test, answer, run_full_validation
+import os
 
 # HuggingFace stuff
 from tokenizers import Tokenizer
@@ -163,6 +164,7 @@ def train_model(config):
 
     # Initialize the writer to visualize data.
     writer = SummaryWriter(config['experiment_name'])
+    print(f"TensorBoard logs are being saved to: {os.path.abspath(config['experiment_name'])}")
 
     # Initialize the Adam optimizer.
     # Adjusts the learning rate as the model trains.

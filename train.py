@@ -154,9 +154,9 @@ def get_dataset(config):
     print(f"Max length of target sentence: {max_len_target}")
 
     # Define the DataLoader objects for training and validation datasets.
-    training_dataloader = DataLoader(training_dataset, batch_size = config['batch_size'], shuffle = True)
-    validation_dataloader = DataLoader(validation_dataset, batch_size = 1, shuffle = True)
-    test_dataloader = DataLoader(test_dataset, batch_size = 1, shuffle = True)
+    training_dataloader = DataLoader(training_dataset, batch_size = config['batch_size'], shuffle = True, num_workers=4)
+    validation_dataloader = DataLoader(validation_dataset, batch_size = 1, shuffle = True, num_workers=4)
+    test_dataloader = DataLoader(test_dataset, batch_size = 1, shuffle = True, num_workers=4)
 
     return training_dataloader, validation_dataloader, test_dataloader, tokenizer
 
@@ -177,7 +177,8 @@ def train_model(config):
 
     # Get the datasets and define the model.
     training_dataloader, validation_dataloader, test_dataloader, tokenizer = get_dataset(config)
-    model = get_model(config, tokenizer.get_vocab_size()).to(device)
+    m = get_model(config, tokenizer.get_vocab_size()).to(device)
+    model = torch.compile(m)
     print(model)
     t = 0
     for n, p in model.named_parameters():

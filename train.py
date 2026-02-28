@@ -274,11 +274,11 @@ def train_model(config):
 
     print('-'*80)
     print("Final model test without hints")
-    run_full_validation(model, training_dataloader, tokenizer, config['context_size'], device, None,
+    run_full_validation(model, test_dataloader, tokenizer, config['context_size'], device, None,
                         0, loss_function, 0.0)
     print('-' * 80)
     print("Final model test with hints")
-    run_full_validation(model, training_dataloader, tokenizer, config['context_size'], device, None,
+    run_full_validation(model, test_dataloader, tokenizer, config['context_size'], device, None,
                         0, loss_function, 1.0)
     print('-' * 80)
     writer.close()

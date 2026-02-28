@@ -106,26 +106,9 @@ def run_testing_pipeline(config):
     # 5. Save Results to CSV
     output_file = "test_results.csv"
     df = pd.DataFrame(results)
-
-    # Simple accuracy check (exact match)
-    # Note: For riddles, exact match is harsh, but good baseline
-    df['Exact Match'] = df.apply(lambda x: x['True Answer'].strip().lower() == x['Predicted'].strip().lower(), axis=1)
-    accuracy = df['Exact Match'].mean()
-
-    print("\n" + "=" * 30)
-    print(f"Testing Complete.")
-    print(f"Exact Match Accuracy: {accuracy:.2%}")
-    print(f"Results saved to {output_file}")
-    print("=" * 30)
-
     df.to_csv(output_file, index=False)
 
-    # 6. Sanity Check - Interactive Demo
-    print("\nRunning a sanity check prediction:")
-    sanity_q = "What has keys but can't open locks?"
-    pred_text, _ = predict_sequence(model, tokenizer, sanity_q, device)
-    print(f"Q: {sanity_q}")
-    print(f"A: {pred_text}")
+    
 
 
 if __name__ == "__main__":

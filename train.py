@@ -145,8 +145,17 @@ def train_model(config):
         config: A config file.
     """
     # Use cuda if possible, otherwise use cpu.
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f'Using device {device}.')
+    def get_device():
+        if torch.cuda.is_available():
+            return torch.device("cuda")
+        elif torch.backends.mps.is_available():
+            return torch.device("mps")
+        else:
+            return torch.device("cpu")
+
+    # usage
+    device = get_device()
+    print(f"Training running on: {device}")
 
     # Make the folder for the model weights.
     Path(config['model_folder']).mkdir(parents = True, exist_ok = True)

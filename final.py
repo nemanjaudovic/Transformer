@@ -56,8 +56,18 @@ def run_testing_pipeline(config):
     """
     Main function to load model and run full tests.
     """
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f'Using device: {device}')
+
+    def get_device():
+        if torch.cuda.is_available():
+            return torch.device("cuda")
+        elif torch.backends.mps.is_available():
+            return torch.device("mps")
+        else:
+            return torch.device("cpu")
+
+    # usage
+    device = get_device()
+    print(f"Inference running on: {device}")
 
     # 1. Prepare Data
     print("Preparing Test Data...")
@@ -66,7 +76,8 @@ def run_testing_pipeline(config):
 
     # 2. Load Model Architecture
     print("Initializing Model...")
-    model = get_model(config, tokenizer.get_vocab_size()).to(device)
+    m = get_model(config, tokenizer.get_vocab_size()).to(device)
+    model = torch.compile(m)
 
     # Optional: Compile if your saved weights expect it, 
     # but often safer to load weights first then compile for inference.
@@ -74,6 +85,7 @@ def run_testing_pipeline(config):
 
     # 3. Load Weights
     model_filename = config['model_path']  # Ensure this is set in your config.py
+    model_filename = '/Users/nemanjaudovic/PycharmProjects/pythonProject/sibp_dom/transformer/weights/dim128_100epoch/riddle_llm89.pt'
 
     if os.path.exists(model_filename):
         print(f"Loading weights from: {model_filename}")
@@ -108,7 +120,7 @@ def run_testing_pipeline(config):
     df = pd.DataFrame(results)
     df.to_csv(output_file, index=False)
 
-    
+
 
 
 if __name__ == "__main__":

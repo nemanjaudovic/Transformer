@@ -17,7 +17,6 @@ from tokenizers.models import WordLevel
 from tokenizers.trainers import WordLevelTrainer
 from tokenizers.pre_tokenizers import Whitespace, CharDelimiterSplit, Punctuation
 from datasets import Dataset as HFDataset
-from transformers import get_cosine_schedule_with_warmup
 
 # Metrics stuff
 import warnings
@@ -171,7 +170,6 @@ def train_model(config):
     optimizer = torch.optim.Adam(model.parameters(), lr = config['learning_rate'], eps = 1e-9)
 
     total_steps = config['num_epochs'] * len(training_dataloader)
-    scheduler = get_cosine_schedule_with_warmup(optimizer, num_warmup_steps=0.05*total_steps, num_training_steps=total_steps)
 
     # Load a pretrained model if defined and if it exists.
     initial_epoch = 0
@@ -229,7 +227,6 @@ def train_model(config):
 
             # Adjust the learning rate.
             optimizer.step()
-            scheduler.step()
             optimizer.zero_grad()
 
             # Adjust the global step.

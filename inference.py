@@ -65,6 +65,7 @@ def main():
 
     # Load Weights
     model_path = config['model_path']
+    model_path = ''
     if os.path.exists(model_path):
         print(f"Loading weights from {model_path}...")
         state = torch.load(model_path, map_location=device)
